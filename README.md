@@ -3,7 +3,7 @@
 The always-on-top paper to-do list, on the Ubuntu desktop (Electron) and the iPhone (SwiftUI), kept in sync through a
 small PHP backend. To-dos and machines sync; reminders are per device.
 
-- `desktop/`: the Electron app. Sync is set in `sync.json` in its data folder (`~/.config/sticky-notes/`):
+- `desktop/`: the Electron app. Sync is set in `sync.json` in its data folder (`~/.config/Sticky Notes/`, next to `notes.json`):
   `{ "url": "https://…/sync.php", "token": "…" }`
 - `ios/`: the iPhone app. GitHub Actions builds an unsigned IPA (`StickyNotes-ipa` artifact); sign and install it with
   Sideloadly. The server URL and token go in the app's settings (gear).
