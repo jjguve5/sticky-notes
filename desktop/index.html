@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'" />
+<title>Sticky Notes</title>
+<link rel="stylesheet" href="node_modules/@fontsource/caveat/600.css" />
+<link rel="stylesheet" href="node_modules/@fontsource-variable/inter/index.css" />
+<style>
+  :root {
+    --paper: #fbf7ec;
+    --paper-2: #f6f0e0;
+    --ink: #2b2a27;
+    --ink-soft: #6f6a5e;
+    --ink-faint: #a8a190;
+    --rule: rgba(84, 120, 168, 0.13);
+    --margin: rgba(214, 92, 84, 0.35);
+    --accent: #d1543f;
+    --done: #3f8f5f;
+    --line-h: 34px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  body { font-family: "Inter Variable", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; user-select: none; padding: 8px; }
+
+  .paper {
+    position: relative; height: 100%; display: flex; flex-direction: column; border-radius: 14px; overflow: hidden;
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(255, 255, 255, 0.7), transparent 60%),
+      linear-gradient(180deg, var(--paper), var(--paper-2));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 10px 30px rgba(40, 32, 12, 0.22), 0 2px 6px rgba(40, 32, 12, 0.12);
+  }
+  /* fine paper grain */
+  .paper::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.35; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.3 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* A strip above the tabs to grab the window by (the whole header drags, but tabs and buttons take clicks) */
+  .grip { -webkit-app-region: drag; height: 16px; display: flex; align-items: center; justify-content: center; cursor: grab; }
+  .grip::before { content: ""; width: 38px; height: 4px; border-radius: 4px; background: rgba(43, 42, 39, 0.16); transition: background 0.15s; }
+  .grip:hover::before { background: rgba(43, 42, 39, 0.3); }
+  header { -webkit-app-region: drag; display: flex; align-items: center; gap: 8px; padding: 0 10px 4px 18px; }
+  h1 { font-family: "Caveat", cursive; font-weight: 600; font-size: 28px; line-height: 1; margin: 0; letter-spacing: 0.2px; }
+  .tabs { display: flex; gap: 10px; -webkit-app-region: no-drag; min-width: 0; }
+  .tab { border: 0; background: transparent; padding: 0 0 3px; cursor: pointer; font-family: "Caveat", cursive; font-weight: 600; font-size: 23px; line-height: 1; color: var(--ink-faint); display: flex; align-items: center; gap: 5px; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+  .tab { white-space: nowrap; flex-shrink: 0; }
+  .tab .count { font-family: "Inter Variable", system-ui, sans-serif; white-space: nowrap; }
+  .tab:hover { color: var(--ink-soft); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .hidden { display: none !important; }
+
+  /* Machines */
+  .madd { gap: 8px; }
+  .madd input:first-of-type { flex: 0.8; }
+  .madd input { min-width: 0; }
+  .lock { position: absolute; left: 12px; top: 6px; width: 22px; height: 22px; border: 0; padding: 0; border-radius: 6px; background: transparent; color: var(--ink-faint); cursor: pointer; display: grid; place-items: center; }
+  .lock svg { width: 16px; height: 16px; }
+  .lock:hover { color: var(--ink-soft); background: rgba(43, 42, 39, 0.06); }
+  li.locked .lock { color: #fff; background: var(--accent); }
+  .mname { flex: 1; font-size: 14.5px; line-height: var(--line-h); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mstate { font-size: 11px; line-height: var(--line-h); color: var(--accent); font-weight: 700; margin-right: 8px; letter-spacing: 0.3px; text-transform: uppercase; }
+  .ip { font-family: ui-monospace, "Cascadia Code", "DejaVu Sans Mono", monospace; font-size: 13px; line-height: 22px; margin-top: 6px; padding: 0 7px; border-radius: 6px; color: var(--ink); background: rgba(43, 42, 39, 0.05); border: 0; cursor: copy; transition: background 0.15s; }
+  .ip:hover { background: rgba(84, 120, 168, 0.16); }
+  .ip.copied { background: rgba(63, 143, 95, 0.2); color: var(--done); }
+  .draft { position: relative; flex: none; width: 24px; height: 24px; margin: 5px 6px 0 0; border: 0; padding: 0; border-radius: 6px; background: transparent; color: var(--ink-faint); opacity: 0.55; cursor: pointer; display: grid; place-items: center; transition: opacity 0.15s, background 0.15s, color 0.15s; }
+  .draft svg { width: 16px; height: 16px; }
+  .draft.set { color: var(--ink-soft); opacity: 0.85; }
+  .draft.today { color: var(--done); opacity: 1; }
+  .draft:hover { opacity: 1; background: rgba(43, 42, 39, 0.06); }
+  .draft::after { content: attr(data-tip); position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; white-space: pre; padding: 6px 9px; border-radius: 7px; background: rgba(43, 42, 39, 0.92); color: #fffdf6; font: 500 12px/1.4 system-ui, sans-serif; text-align: left; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); opacity: 0; transform: translateY(-3px); pointer-events: none; transition: opacity 0.12s, transform 0.12s; }
+  .draft:hover::after { opacity: 1; transform: none; }
+  .count { font-size: 11.5px; font-weight: 600; color: var(--ink-soft); background: rgba(43, 42, 39, 0.06); border-radius: 99px; padding: 2px 8px; }
+  .spacer { flex: 1; }
+  .icon { -webkit-app-region: no-drag; width: 26px; height: 26px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-faint); display: grid; place-items: center; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .icon:hover { background: rgba(43, 42, 39, 0.07); color: var(--ink); }
+  .icon.on { color: var(--accent); }
+  .icon svg { width: 15px; height: 15px; }
+
+  .sheet { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  /* The rules scroll with the list (local), so text lines stay on them */
+  .ruled { background-image: repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px), var(--rule) var(--line-h)); background-attachment: local; }
+  .sheet::before { content: ""; position: absolute; top: 0; bottom: 0; left: 40px; width: 1.5px; background: var(--margin); }
+
+  .add { display: flex; align-items: center; height: var(--line-h); padding-left: 52px; padding-right: 14px; margin-top: 6px; border-bottom: 1px solid var(--rule); }
+  .add input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14.5px; color: var(--ink); padding: 0; height: 100%; user-select: text; }
+  .add input::placeholder { color: var(--ink-faint); }
+  .add .plus { position: absolute; left: 16px; width: 18px; height: 18px; color: var(--ink-faint); }
+
+  ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  ul::-webkit-scrollbar { width: 8px; }
+  ul::-webkit-scrollbar-thumb { background: rgba(43, 42, 39, 0.15); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  /* Every text line sits on one rule: rows are whole multiples of the line height, the box and age on the first line */
+  li { position: relative; display: flex; align-items: flex-start; min-height: var(--line-h); padding: 0 12px 0 52px; }
+  li.new { animation: in 0.18s ease-out; }
+  li:hover { background: rgba(43, 42, 39, 0.035); }
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } }
+
+  .check { position: absolute; left: 13px; top: 7px; width: 20px; height: 20px; border: 0; padding: 0; background: transparent; cursor: pointer; color: var(--ink-faint); }
+  .check svg { width: 20px; height: 20px; overflow: visible; }
+  .check .box { fill: none; stroke: currentColor; stroke-width: 1.6; }
+  .check .tick { fill: none; stroke: var(--done); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset 0.22s ease-out; }
+  .check:hover { color: var(--ink-soft); }
+
+  .text { flex: 1; font-size: 14.5px; line-height: var(--line-h); padding: 0; word-break: break-word; outline: 0; position: relative; cursor: text; }
+  .text[contenteditable="true"] { user-select: text; background: rgba(255, 236, 160, 0.45); border-radius: 4px; padding: 0 4px; margin: 0 -4px; box-shadow: 0 0 0 1px rgba(209, 84, 63, 0.25); }
+  .text { text-decoration: line-through; text-decoration-color: transparent; text-decoration-thickness: 1.6px; transition: color 0.25s, text-decoration-color 0.25s; }
+  .age { font-size: 11px; line-height: var(--line-h); color: var(--ink-faint); margin-left: 8px; white-space: nowrap; }
+  .del, .bell { opacity: 0; margin-left: 2px; margin-top: 4px; flex-shrink: 0; }
+  li:hover .del, li:hover .bell, .bell.set { opacity: 1; }
+  .bell.set { color: var(--accent); }
+  .age.timer { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .age.due { color: #fff; font-weight: 700; }
+
+  /* Ringing: the row blinks and the bell shakes until it's clicked */
+  li.ringing { cursor: pointer; animation: blink 1s ease-in-out infinite; }
+  li.ringing .text { font-weight: 600; }
+  li.ringing .bell { opacity: 1; color: #fff; animation: shake 0.6s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { background: rgba(209, 84, 63, 0.92); color: #fff; } 50% { background: rgba(209, 84, 63, 0.35); color: var(--ink); } }
+  @keyframes shake { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-16deg); } 75% { transform: rotate(16deg); } }
+
+  .picker { position: absolute; z-index: 3; width: 196px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; border-radius: 12px; background: #fffdf6; box-shadow: 0 10px 28px rgba(40, 32, 12, 0.25), 0 0 0 1px rgba(43, 42, 39, 0.08); animation: in 0.14s ease-out; }
+  .picker button { border: 0; border-radius: 8px; background: rgba(43, 42, 39, 0.06); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; padding: 7px 0; cursor: pointer; }
+  .picker button:hover { background: rgba(209, 84, 63, 0.14); color: var(--accent); }
+  .picker input { grid-column: 1 / -1; border: 1px solid rgba(43, 42, 39, 0.15); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; padding: 7px 9px; outline: 0; user-select: text; }
+  .picker input:focus { border-color: var(--accent); }
+  .picker input.bad { border-color: #c0392b; background: #fdecea; }
+  .picker .off { grid-column: 1 / -1; background: transparent; color: var(--ink-soft); font-weight: 500; }
+
+  li.done .tick { stroke-dashoffset: 0; }
+  li.done .box { stroke: var(--done); }
+  li.done .text { color: var(--ink-faint); text-decoration-color: var(--ink-soft); }
+  li.leaving { transition: opacity 0.25s, transform 0.25s; opacity: 0; transform: translateX(14px); }
+
+  .empty { text-align: center; color: var(--ink-faint); font-family: "Caveat", cursive; font-size: 22px; padding-top: 28px; }
+
+  .toast { position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: 0.2s; background: var(--ink); color: var(--paper); font-size: 12.5px; border-radius: 99px; padding: 7px 8px 7px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2); z-index: 2; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; border-radius: 99px; background: rgba(251, 247, 236, 0.16); color: inherit; font: inherit; font-weight: 600; padding: 3px 10px; cursor: pointer; }
+  .toast button:hover { background: rgba(251, 247, 236, 0.28); }
+</style>
+</head>
+<body>
+<div class="paper">
+  <div class="grip" title="Drag to move"></div>
+  <header>
+    <nav class="tabs">
+      <button class="tab active" data-tab="todo">To do <span class="count" id="count">0</span></button>
+      <button class="tab" data-tab="machines">Machines <span class="count" id="mcount">0</span></button>
+    </nav>
+    <span class="spacer"></span>
+    <button class="icon" id="pin" title="Keep on top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
+    <button class="icon" id="min" title="Hide (the top bar icon brings it back)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button class="icon" id="close" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </header>
+  <div class="sheet" id="todoView">
+    <label class="add">
+      <svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <input id="new" placeholder="Something to do…" autocomplete="off" spellcheck="false" />
+    </label>
+    <ul id="list" class="ruled"></ul>
+  </div>
+  <div class="sheet hidden" id="machinesView">
+    <div class="add madd">
+      <svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      <input id="mname" placeholder="Name" autocomplete="off" spellcheck="false" />
+      <input id="mip" placeholder="IP address" autocomplete="off" spellcheck="false" />
+    </div>
+    <ul id="mlist" class="ruled"></ul>
+  </div>
+  <div class="toast" id="toast"><span id="toastText"></span><button id="undo">Undo</button></div>
+</div>
+<script src="renderer.js"></script>
+<script src="machines.js"></script>
+</body>
+</html>
