@@ -6,3 +6,4 @@ ios/build/
 ios/Payload/
 *.ipa
 ios/Info.plist
+dist/
